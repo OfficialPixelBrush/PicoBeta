@@ -1,4 +1,4 @@
-# PicoCraft
+# PicoBeta
  A bare-bones Minecraft Beta 1.7.3 Server that can run on a Raspberry Pi Pico W.
  
  Think of it more like Minecraft Classic but it needs a Beta 1.7.3 Client.

@@ -7,8 +7,8 @@
 #endif
 
 #ifndef AP_SSID
-#define AP_SSID "picocraft"
-#define AP_PSK "picocraft"
+#define AP_SSID "picobeta"
+#define AP_PSK "pb123"
 #endif
 
 #define USE_AP_MODE false
