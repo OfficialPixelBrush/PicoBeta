@@ -400,7 +400,8 @@ void SendChunk(WiFiClient& client, int32_t x, int32_t z, int32_t dataSize, uint8
   WriteByte(client, (~trueSize) & 0xFF);
   WriteByte(client, (~trueSize >> 8) & 0xFF);
 
-  // Starting already with Adler32 calculation since we need to write the raw data as well
+  // Interleaves Adler32 checksum calculation with writing the chunk data to avoid
+  // needing to iterate over the whole data array again just for the checksum.
   uint32_t A = 1;  // Initialize A
   uint32_t B = 0;  // Initialize B
 
