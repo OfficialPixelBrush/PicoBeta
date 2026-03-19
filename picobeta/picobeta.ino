@@ -416,8 +416,9 @@ void SendChunk(WiFiClient& client, int32_t x, int32_t z, int32_t dataSize, uint8
   for (int32_t i = 0; i < dataSize / 2; i++) {
     // Send zeroes for metadata since we don't have any metadata
     WriteByte(client, 0);
-    A += 0;
-    A = A % 65521;
+    // A isn't incremented, so this can be ignored
+    //A += 0;
+    //A = A % 65521;
     B += A;
     B = B % 65521;
   }
