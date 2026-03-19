@@ -339,6 +339,7 @@ void SendPreChunk(WiFiClient& client, int32_t x, int32_t z, bool mode) {
   WriteByte(client, mode);
 }
 
+/*
 uint32_t adler32custom(uint8_t* data, int32_t dataSize) {
   uint32_t A = 1;  // Initialize A
   uint32_t B = 0;  // Initialize B
@@ -369,6 +370,7 @@ uint32_t adler32custom(uint8_t* data, int32_t dataSize) {
 
   return (B << 16) | A;  // Combine B and A to get the final Adler32 value
 }
+*/
 
 void SendChunk(WiFiClient& client, int32_t x, int32_t z, int32_t dataSize, uint8_t* data) {
   WriteByte(client, Chunk);
@@ -398,22 +400,40 @@ void SendChunk(WiFiClient& client, int32_t x, int32_t z, int32_t dataSize, uint8
   WriteByte(client, (~trueSize) & 0xFF);
   WriteByte(client, (~trueSize >> 8) & 0xFF);
 
+  // Starting already with Adler32 calculation since we need to write the raw data as well
+  uint32_t A = 1;  // Initialize A
+  uint32_t B = 0;  // Initialize B
+
   // Write the raw data
   for (int32_t i = 0; i < dataSize; i++) {
     WriteByte(client, data[i]);
+    A += data[i];   // Sum the data
+    A = A % 65521;  // Modulo with 65521 to prevent overflow
+    B += A;         // Add to B
+    B = B % 65521;  // Modulo with 65521 to prevent overflow
   }
   // Metadata
   for (int32_t i = 0; i < dataSize / 2; i++) {
+    // Send zeroes for metadata since we don't have any metadata
     WriteByte(client, 0);
+    A += 0;
+    A = A % 65521;
+    B += A;
+    B = B % 65521;
   }
   // Lighting (Block + Skylight)
   for (int32_t i = 0; i < dataSize; i++) {
+    // Send full brightness for now, since we don't have a lighting engine
     WriteByte(client, 0xFF);
+    A += 0xFF;
+    A = A % 65521;
+    B += A;
+    B = B % 65521;
   }
 
   // Adler32 checksum at the end
-  uint32_t adler = adler32custom(data, dataSize);
-  WriteInteger(client, adler);
+  //uint32_t adler = adler32custom(data, dataSize);
+  WriteInteger(client, (B << 16) | A);
 }
 
 void SendPlayerPosition(WiFiClient& client, struct Player& p) {
