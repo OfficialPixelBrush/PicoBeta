@@ -35,8 +35,8 @@ enum Packet {
   TimeUpdate = 0x04,
   EntityEquipment = 0x05,
   SpawnPosition = 0x06,
-  UseEntity = 0x07,
-  UpdateHealth = 0x08,
+  ClickEntity = 0x07,
+  SetHealth = 0x08,
   Respawn = 0x09,
   Player = 0x0A,
   PlayerPosition = 0x0B,
@@ -44,17 +44,17 @@ enum Packet {
   PlayerPositionLook = 0x0D,
   PlayerDigging = 0x0E,
   PlayerBlockPlacement = 0x0F,
-  HoldingChange = 0x10,
+  ActiveSlot = 0x10,
   UseBed = 0x11,
-  Animation = 0x12,
+  PlayerAction = 0x12,
   EntityAction = 0x13,
-  NamedEntitySpawn = 0x14,
-  PickupSpawn = 0x15,
+  SpawnPlayerEntity = 0x14,
+  SpawnItemEntity = 0x15,
   CollectItem = 0x16,
-  AddObjectVehicle = 0x17,
-  MobSpawn = 0x18,
-  EntityPainting = 0x19,
-  StanceUpdate = 0x1B,
+  SpawnObjectEntity = 0x17,
+  SpawnMobEntity = 0x18,
+  SpawnPaintingEntity = 0x19,
+  PlayerMovement = 0x1B,
   EntityVelocity = 0x1C,
   DestroyEntity = 0x1D,
   Entity = 0x1E,
@@ -62,18 +62,18 @@ enum Packet {
   EntityLook = 0x20,
   EntityLookRelativeMove = 0x21,
   EntityTeleport = 0x22,
-  EntityStatus = 0x26,
-  AttachEntity = 0x27,
+  EntityMetadata = 0x26,
+  MountEntity = 0x27,
   EntityMetadata = 0x28,
   PreChunk = 0x32,
   Chunk = 0x33,
-  MultiBlockChange = 0x34,
-  BlockChange = 0x35,
+  MultiBlockUpdate = 0x34,
+  BlockUpdate = 0x35,
   BlockAction = 0x36,
   Explosion = 0x3C,
-  Soundeffect = 0x3D,
-  NewInvalidState = 0x46,
-  Thunderbolt = 0x47,
+  Effect = 0x3D,
+  GameState = 0x46,
+  LightningBolt = 0x47,
   OpenWindow = 0x64,
   CloseWindow = 0x65,
   WindowClick = 0x66,
@@ -460,7 +460,7 @@ void SendGlobalChatMessage(const char* sender, const char* message, char color =
   }
 }
 
-void SendBlockChange(WiFiClient& client, Int3 pos, int8_t type, int8_t meta) {
+void SendBlockUpdate(WiFiClient& client, Int3 pos, int8_t type, int8_t meta) {
   if (pos.x < WORLD_SIZE_X && pos.x > -1 && pos.y < WORLD_SIZE_Y && pos.y > -1 && pos.z < WORLD_SIZE_Z && pos.z > -1) {
     // In bounds
   } else {
@@ -469,7 +469,7 @@ void SendBlockChange(WiFiClient& client, Int3 pos, int8_t type, int8_t meta) {
     type = 0;
     meta = 0;
   }
-  WriteByte(client, BlockChange);
+  WriteByte(client, BlockUpdate);
   WriteInteger(client, pos.x);
   WriteByte(client, (int8_t)pos.y);
   WriteInteger(client, pos.z);
@@ -480,10 +480,20 @@ void SendBlockChange(WiFiClient& client, Int3 pos, int8_t type, int8_t meta) {
   world[index] = (uint8_t)type;
 }
 
-void SendGlobalBlockChange(Int3 pos, int8_t type, int8_t meta) {
+void SendEffect(WiFiClient& client, int32_t effectId, Int3 pos, int32_t data) {
+  WriteByte(client, Effect);
+  WriteInteger(client, effectId);
+  WriteInteger(client, pos.x);
+  WriteByte(client, int8_t(pos.y));
+  WriteInteger(client, pos.z);
+  WriteInteger(client, data);
+}
+
+void SendGlobalBlockUpdate(Int3 pos, int8_t type, int8_t meta) {
   for (int i = 0; i < MAX_CONNECTIONS; i++) {
     if (players[i].client && players[i].client.connected()) {
-      SendBlockChange(players[i].client, pos, type, meta);
+      SendBlockUpdate(players[i].client, pos, type, meta);
+      SendEffect(players[i].client, 2001, pos, type);
     }
   }
 }
@@ -595,7 +605,7 @@ void SendPlayerBlockPlacement(WiFiClient& client, struct Player& p) {
       // Give the placed item back to the player immediately
       SendSetSlot(client, 0, INVENTORY_HOTBAR + p.hotbarSlot, id, 1, damage);
       FaceOffset(pos, face);
-      SendGlobalBlockChange(pos, (int8_t)id, (int8_t)damage);
+      SendGlobalBlockUpdate(pos, (int8_t)id, (int8_t)damage);
     }
   }
 }
@@ -611,7 +621,7 @@ void SendPlayerDigging(WiFiClient& client, struct Player& p) {
   uint8_t blockType = world[GetBlockIndex(pos.x, pos.y, pos.z)];
   // Break blocks instantly
   if (status == 0 && blockType != 7) {
-    SendGlobalBlockChange(pos, 0, 0);
+    SendGlobalBlockUpdate(pos, 0, 0);
   }
 }
 
@@ -692,7 +702,7 @@ void ProcessClient(WiFiClient& client, struct Player& p) {
         p.pitch = ReadFloat(client);
         p.onGround = ReadByte(client);
         break;
-      case Animation:
+      case PlayerAction:
         ReadInteger(client);
         ReadByte(client);
         break;
@@ -702,7 +712,7 @@ void ProcessClient(WiFiClient& client, struct Player& p) {
       case PlayerDigging:
         SendPlayerDigging(client, p);
         break;
-      case HoldingChange:
+      case ActiveSlot:
         p.hotbarSlot = ReadShort(client);
         break;
       case CloseWindow:
